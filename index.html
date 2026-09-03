@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema de Controle de Ponto e Frequência</title>
+  <style>
+    :root {
+      --bg-color: #FFFFFF;
+      --text-color: #1F2937;
+      --border-color: #E5E7EB;
+      --primary-color: #2563EB;
+      --primary-hover: #1D4ED8;
+      --danger-color: #DC2626;
+      --danger-hover: #B91C1C;
+      --success-color: #16A34A;
+      --warning-color: #D97706;
+      --card-bg: #FFFFFF;
+      --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      --radius: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Container padronizado para Desktop / Tablet */
+    .app-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.25rem 2rem;
+      border-bottom: 1px solid var(--border-color);
+      background-color: var(--bg-color);
+    }
+
+    .app-title {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 1.5rem;
+      font-weight: 700;
+    }
+
+    .network-status {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      border-radius: var(--radius);
+      border: 1px solid var(--border-color);
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+
+    .network-status.online {
+      color: var(--success-color);
+      border-color: var(--success-color);
+    }
+
+    .network-status.offline {
+      color: var(--danger-color);
+      border-color: var(--danger-color);
+    }
+
+    .main-container {
+      flex: 1;
+      width: 100%;
+      max-width: 1024px;
+      margin: 0 auto;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    @media (min-width: 768px) {
+      .main-container {
+        padding: 3rem 2rem;
+      }
+    }
+
+    /* Botão Flutuante de Emergência */
+    .emergency-btn-floating {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      background-color: var(--danger-color);
+      color: #FFFFFF;
+      border: none;
+      border-radius: 50px;
+      padding: 1rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 600;
+      font-size: 1rem;
+      box-shadow: var(--shadow);
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+      z-index: 1000;
+    }
+
+    .emergency-btn-floating:hover {
+      background-color: var(--danger-hover);
+    }
+
+    /* Utilitários */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      box-shadow: var(--shadow);
+    }
+  </style>
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+  <header class="app-header">
+    <div class="app-title">
+      <i data-lucide="clock"></i>
+      <span>Controle de Ponto</span>
+    </div>
+    <div id="networkStatus" class="network-status online">
+      <i data-lucide="wifi"></i>
+      <span id="networkStatusText">Online</span>
+    </div>
+  </header>
+
+  <main class="main-container">
+    <div class="card">
+      <h2>Sistema de Ponto e Frequência</h2>
+      <p>Estrutura inicial em carregamento...</p>
+    </div>
+  </main>
+
+  <!-- Botão Flutuante de Suporte/Emergência -->
+  <button id="emergencyBtn" class="emergency-btn-floating" title="Acionar Emergência / Suporte">
+    <i data-lucide="alert-triangle"></i>
+    <span>Emergência / Suporte</span>
+  </button>
+
+  <!-- Módulo JavaScript Principal -->
+  <script type="module" src="./supabaseClient.js"></script>
+  <script>
+    // Inicialização dos Ícones Lucide
+    document.addEventListener('DOMContentLoaded', () => {
+      if (window.lucide) {
+        lucide.createIcons();
+      }
+    });
+
+    // Monitoramento do Status da Conexão
+    function updateOnlineStatus() {
+      const statusElem = document.getElementById('networkStatus');
+      const statusText = document.getElementById('networkStatusText');
+      if (navigator.onLine) {
+        statusElem.className = 'network-status online';
+        statusText.textContent = 'Online';
+      } else {
+        statusElem.className = 'network-status offline';
+        statusText.textContent = 'Offline';
+      }
+      if (window.lucide) {
+        lucide.createIcons();
+      }
+    }
+
+    window.addEventListener('online', updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
+    updateOnlineStatus();
+  </script>
+</body>
+</html>
