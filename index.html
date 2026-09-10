@@ -4,10 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sistema de Controle de Ponto e Frequência</title>
+  <link rel="manifest" href="./manifest.json">
   <style>
     :root {
       --bg-color: #FFFFFF;
       --text-color: #1F2937;
+      --text-muted: #6B7280;
       --border-color: #E5E7EB;
       --primary-color: #2563EB;
       --primary-hover: #1D4ED8;
@@ -53,6 +55,12 @@
       font-weight: 700;
     }
 
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
     .network-status {
       display: flex;
       align-items: center;
@@ -74,6 +82,15 @@
       border-color: var(--danger-color);
     }
 
+    .clock-display {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: var(--primary-color);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
     .main-container {
       flex: 1;
       width: 100%;
@@ -87,8 +104,265 @@
 
     @media (min-width: 768px) {
       .main-container {
-        padding: 3rem 2rem;
+        padding: 2.5rem 2rem;
       }
+    }
+
+    /* Card & Forms */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 2rem;
+      box-shadow: var(--shadow);
+    }
+
+    .card-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .form-label {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-color);
+    }
+
+    .form-input, .form-select {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      font-size: 1rem;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      outline: none;
+      transition: border-color 0.2s ease;
+    }
+
+    .form-input:focus, .form-select:focus {
+      border-color: var(--primary-color);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      font-weight: 600;
+      border-radius: var(--radius);
+      border: none;
+      cursor: pointer;
+      transition: background-color 0.2s ease, opacity 0.2s ease;
+    }
+
+    .btn-primary {
+      background-color: var(--primary-color);
+      color: #FFFFFF;
+    }
+
+    .btn-primary:hover {
+      background-color: var(--primary-hover);
+    }
+
+    .btn-secondary {
+      background-color: #F3F4F6;
+      color: var(--text-color);
+      border: 1px solid var(--border-color);
+    }
+
+    .btn-secondary:hover {
+      background-color: #E5E7EB;
+    }
+
+    .btn-danger {
+      background-color: var(--danger-color);
+      color: #FFFFFF;
+    }
+
+    .btn-danger:hover {
+      background-color: var(--danger-hover);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Grid Layout para Câmera & Dados */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+
+    @media (min-width: 768px) {
+      .grid-2 {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    /* Câmera Stream Container */
+    .camera-container {
+      width: 100%;
+      aspect-ratio: 4/3;
+      background-color: #F3F4F6;
+      border: 2px dashed var(--border-color);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    video, canvas, img.preview-photo {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .camera-overlay {
+      position: absolute;
+      bottom: 1rem;
+      left: 1rem;
+      right: 1rem;
+      display: flex;
+      justify-content: center;
+    }
+
+    /* Alert Message */
+    .alert {
+      padding: 1rem;
+      border-radius: var(--radius);
+      margin-bottom: 1.5rem;
+      font-size: 0.875rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .alert-warning {
+      background-color: #FEF3C7;
+      color: #92400E;
+      border: 1px solid #FDE68A;
+    }
+
+    .alert-danger {
+      background-color: #FEE2E2;
+      color: #991B1B;
+      border: 1px solid #FCA5A5;
+    }
+
+    .alert-success {
+      background-color: #DCFCE7;
+      color: #166534;
+      border: 1px solid #86EFAC;
+    }
+
+    /* Modal Overlay */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      padding: 1.5rem;
+    }
+
+    .modal-card {
+      background: #FFFFFF;
+      width: 100%;
+      max-width: 550px;
+      border-radius: var(--radius);
+      padding: 2rem;
+      box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    /* Comprovante Visual */
+    .comprovante-ticket {
+      border: 1px dashed var(--border-color);
+      background-color: #FAFAFA;
+      padding: 1.5rem;
+      border-radius: var(--radius);
+      font-family: monospace;
+      font-size: 0.875rem;
+      line-height: 1.6;
+    }
+
+    .paper-sensor-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 1rem;
+      background: #F9FAFB;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      font-size: 0.875rem;
+      margin-top: 1rem;
+    }
+
+    /* Switch Component */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #CCC;
+      transition: .3s;
+      border-radius: 24px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .3s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider {
+      background-color: var(--primary-color);
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(20px);
     }
 
     /* Botão Flutuante de Emergência */
@@ -116,16 +390,10 @@
       background-color: var(--danger-hover);
     }
 
-    /* Utilitários */
-    .card {
-      background: var(--card-bg);
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius);
-      padding: 1.5rem;
-      box-shadow: var(--shadow);
+    .hidden {
+      display: none !important;
     }
   </style>
-  <!-- Lucide Icons CDN -->
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
@@ -134,27 +402,185 @@
       <i data-lucide="clock"></i>
       <span>Controle de Ponto</span>
     </div>
-    <div id="networkStatus" class="network-status online">
-      <i data-lucide="wifi"></i>
-      <span id="networkStatusText">Online</span>
+    <div class="header-right">
+      <div class="clock-display" id="realtimeClock">
+        <i data-lucide="calendar"></i>
+        <span id="clockText">--:--:--</span>
+      </div>
+      <div id="networkStatus" class="network-status online">
+        <i data-lucide="wifi"></i>
+        <span id="networkStatusText">Online</span>
+      </div>
     </div>
   </header>
 
   <main class="main-container">
-    <div class="card">
-      <h2>Sistema de Ponto e Frequência</h2>
-      <p>Estrutura inicial em carregamento...</p>
+
+    <!-- Alerta de Bloqueio por Brute Force -->
+    <div id="bruteForceAlert" class="alert alert-danger hidden">
+      <i data-lucide="shield-alert"></i>
+      <span id="bruteForceMessage">Interface bloqueada por muitas tentativas incorretas. Aguarde 60 segundos.</span>
     </div>
+
+    <!-- Alerta de Notificação do Sistema -->
+    <div id="systemAlert" class="alert hidden">
+      <i data-lucide="info"></i>
+      <span id="systemAlertText"></span>
+    </div>
+
+    <!-- FASE DE IDENTIFICAÇÃO E REGISTRO -->
+    <div id="pontoCard" class="card">
+      <div class="card-title">
+        <i data-lucide="user-check"></i>
+        <span>Registro de Ponto</span>
+      </div>
+
+      <div class="grid-2">
+        <!-- Coluna Esquerda: Dados do Funcionário -->
+        <div>
+          <div class="form-group">
+            <label class="form-label" for="matriculaInput">Matrícula do Funcionário (ID)</label>
+            <input type="text" id="matriculaInput" class="form-input" placeholder="Ex: MAT12345" autocomplete="off" />
+          </div>
+
+          <div class="form-group">
+            <button id="btnBuscarFuncionario" class="btn btn-secondary" style="width: 100%;">
+              <i data-lucide="search"></i>
+              <span>Validar Matrícula</span>
+            </button>
+          </div>
+
+          <!-- Dados Confirmados do Funcionário -->
+          <div id="funcionarioDetails" class="alert alert-success hidden">
+            <div>
+              <strong id="funcionarioNome">--</strong><br>
+              <small id="funcionarioEscala">Escala: --</small>
+            </div>
+          </div>
+
+          <!-- Tipo de Registro -->
+          <div class="form-group">
+            <label class="form-label" for="tipoRegistroSelect">Tipo de Marcação</label>
+            <select id="tipoRegistroSelect" class="form-select">
+              <option value="ENTRADA">ENTRADA</option>
+              <option value="SAIDA_INTERVALO">SAÍDA INTERVALO</option>
+              <option value="RETORNO_INTERVALO">RETORNO INTERVALO</option>
+              <option value="SAIDA">SAÍDA</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <button id="btnRegistrarPonto" class="btn btn-primary" style="width: 100%;" disabled>
+              <i data-lucide="check-circle"></i>
+              <span>Confirmar Registro de Ponto</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Coluna Direita: Captura de Foto -->
+        <div>
+          <div class="form-group">
+            <label class="form-label">Foto do Rosto (Tempo Real)</label>
+            <div class="camera-container" id="cameraContainer">
+              <video id="webcamVideo" autoplay playsinline muted></video>
+              <canvas id="webcamCanvas" class="hidden"></canvas>
+              <img id="photoPreview" class="preview-photo hidden" alt="Foto tirada" />
+              <div id="cameraPlaceholder" class="hidden" style="text-align: center; color: var(--text-muted);">
+                <i data-lucide="camera-off" style="width: 48px; height: 48px; margin-bottom: 0.5rem;"></i>
+                <p>Aguardando acionamento da câmera...</p>
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 0.5rem;">
+            <button id="btnCapturarFoto" class="btn btn-secondary" style="flex: 1;">
+              <i data-lucide="camera"></i>
+              <span>Tirar Foto</span>
+            </button>
+            <button id="btnRecapturarFoto" class="btn btn-secondary hidden" style="flex: 1;">
+              <i data-lucide="refresh-cw"></i>
+              <span>Nova Foto</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sensor de Bobina Impressora (Simulação/Contingência RF03) -->
+      <div class="paper-sensor-toggle">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <i data-lucide="printer"></i>
+          <span>Sensor de Bobina da Impressora:</span>
+          <strong id="paperSensorStatusText" style="color: var(--success-color);">Com Papel</strong>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="paperSensorToggle" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
   </main>
 
-  <!-- Botão Flutuante de Suporte/Emergência -->
+  <!-- MODAL DE SELEÇÃO E EMISSÃO DE COMPROVANTE (RF03) -->
+  <div id="modalComprovante" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="card-title" style="margin-bottom: 0;">
+        <i data-lucide="file-check"></i>
+        <span>Comprovante de Registro de Ponto</span>
+      </div>
+
+      <div id="comprovanteTicket" class="comprovante-ticket">
+        <!-- Conteúdo do ticket gerado dinamicamente -->
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Escolha o Canal de Recebimento do Comprovante:</label>
+
+        <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.5rem;">
+          <button id="btnImprimirFisico" class="btn btn-secondary" style="justify-content: flex-start;">
+            <i data-lucide="printer"></i>
+            <span>Impressão Física (Papel)</span>
+          </button>
+
+          <!-- Mensagem de indisponibilidade caso sem papel -->
+          <div id="paperUnavailableNotice" class="alert alert-warning hidden" style="margin-bottom: 0;">
+            <i data-lucide="alert-circle"></i>
+            <span>Impressão física indisponível (ausência de bobina). Por favor, selecione um canal digital abaixo.</span>
+          </div>
+
+          <button id="btnEnviarEmail" class="btn btn-secondary" style="justify-content: flex-start;">
+            <i data-lucide="mail"></i>
+            <span>Enviar por E-mail</span>
+          </button>
+
+          <button id="btnEnviarWhatsApp" class="btn btn-secondary" style="justify-content: flex-start;">
+            <i data-lucide="message-square"></i>
+            <span>Enviar por SMS / WhatsApp</span>
+          </button>
+
+          <button id="btnVisualizarTela" class="btn btn-primary" style="justify-content: flex-start;">
+            <i data-lucide="eye"></i>
+            <span>Apenas Visualização na Tela</span>
+          </button>
+        </div>
+      </div>
+
+      <div style="text-align: right;">
+        <button id="btnFecharModalComprovante" class="btn btn-secondary">Concluir</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Botão Flutuante de Suporte/Emergência (RF04) -->
   <button id="emergencyBtn" class="emergency-btn-floating" title="Acionar Emergência / Suporte">
     <i data-lucide="alert-triangle"></i>
     <span>Emergência / Suporte</span>
   </button>
 
-  <!-- Módulo JavaScript Principal -->
+  <!-- Módulos JavaScript -->
   <script type="module" src="./supabaseClient.js"></script>
+  <script type="module" src="./db.js"></script>
+  <script type="module" src="./app.js"></script>
   <script>
     // Inicialização dos Ícones Lucide
     document.addEventListener('DOMContentLoaded', () => {
@@ -182,6 +608,15 @@
     window.addEventListener('online', updateOnlineStatus);
     window.addEventListener('offline', updateOnlineStatus);
     updateOnlineStatus();
+
+    // Registrar Service Worker para PWA
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => console.log('Service Worker registrado:', reg))
+          .catch(err => console.error('Erro ao registrar Service Worker:', err));
+      });
+    }
   </script>
 </body>
 </html>

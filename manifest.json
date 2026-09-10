@@ -1,0 +1,16 @@
+{
+  "name": "Sistema de Controle de Ponto e Frequência",
+  "short_name": "PontoPWA",
+  "description": "Sistema PWA de Ponto e Frequência para Tablets e Desktop",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#FFFFFF",
+  "theme_color": "#2563EB",
+  "icons": [
+    {
+      "src": "https://unpkg.com/lucide-static@latest/icons/clock.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}
