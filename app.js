@@ -14,6 +14,7 @@ let lastRegistroCreated = null;
 
 // Elementos do DOM
 const matriculaInput = document.getElementById('matriculaInput');
+const btnGerarMatricula = document.getElementById('btnGerarMatricula');
 const btnBuscarFuncionario = document.getElementById('btnBuscarFuncionario');
 const funcionarioDetails = document.getElementById('funcionarioDetails');
 const funcionarioNome = document.getElementById('funcionarioNome');
@@ -363,12 +364,23 @@ async function acionarEmergencia() {
   }
 }
 
+// Gerar Matrícula Aleatória de Exemplo
+function gerarMatriculaExemplo() {
+  const randomNum = Math.floor(10000 + Math.random() * 90000);
+  const novaMatricula = `MAT${randomNum}`;
+  matriculaInput.value = novaMatricula;
+  showSystemAlert(`Matrícula gerada com sucesso: ${novaMatricula}`, 'info');
+}
+
 // Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
   startRealtimeClock();
   initCamera();
   fetchGeolocation();
 
+  if (btnGerarMatricula) {
+    btnGerarMatricula.addEventListener('click', gerarMatriculaExemplo);
+  }
   btnBuscarFuncionario.addEventListener('click', buscarFuncionario);
   btnCapturarFoto.addEventListener('click', capturePhoto);
   btnRecapturarFoto.addEventListener('click', resetPhoto);
