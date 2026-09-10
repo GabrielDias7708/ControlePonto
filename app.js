@@ -14,8 +14,16 @@ let lastRegistroCreated = null;
 
 // Elementos do DOM
 const matriculaInput = document.getElementById('matriculaInput');
-const btnGerarMatricula = document.getElementById('btnGerarMatricula');
+const btnAbrirModalCadastro = document.getElementById('btnAbrirModalCadastro');
 const btnBuscarFuncionario = document.getElementById('btnBuscarFuncionario');
+
+const modalCadastroFuncionario = document.getElementById('modalCadastroFuncionario');
+const novoNomeInput = document.getElementById('novoNomeInput');
+const novoEmailInput = document.getElementById('novoEmailInput');
+const novaMatriculaInput = document.getElementById('novaMatriculaInput');
+const btnGerarNovaMatricula = document.getElementById('btnGerarNovaMatricula');
+const btnCancelarCadastro = document.getElementById('btnCancelarCadastro');
+const btnSalvarFuncionario = document.getElementById('btnSalvarFuncionario');
 const funcionarioDetails = document.getElementById('funcionarioDetails');
 const funcionarioNome = document.getElementById('funcionarioNome');
 const funcionarioEscala = document.getElementById('funcionarioEscala');
@@ -364,12 +372,66 @@ async function acionarEmergencia() {
   }
 }
 
-// Gerar Matrícula Aleatória de Exemplo
-function gerarMatriculaExemplo() {
+// Gestão de Cadastro de Novo Funcionário e Matrícula
+function gerarCodigoMatricula() {
   const randomNum = Math.floor(10000 + Math.random() * 90000);
-  const novaMatricula = `MAT${randomNum}`;
-  matriculaInput.value = novaMatricula;
-  showSystemAlert(`Matrícula gerada com sucesso: ${novaMatricula}`, 'info');
+  return `MAT${randomNum}`;
+}
+
+function abrirModalCadastro() {
+  novoNomeInput.value = '';
+  novoEmailInput.value = '';
+  novaMatriculaInput.value = gerarCodigoMatricula();
+  modalCadastroFuncionario.classList.remove('hidden');
+}
+
+function fecharModalCadastro() {
+  modalCadastroFuncionario.classList.add('hidden');
+}
+
+async function salvarNovoFuncionario() {
+  const nome = novoNomeInput.value.trim();
+  const email = novoEmailInput.value.trim();
+  const matricula = novaMatriculaInput.value.trim();
+
+  if (!nome || !email || !matricula) {
+    showSystemAlert('Por favor, preencha todos os campos do cadastro.', 'warning');
+    return;
+  }
+
+  btnSalvarFuncionario.disabled = true;
+
+  if (navigator.onLine) {
+    const { data, error } = await supabase
+      .from('funcionarios')
+      .insert([
+        {
+          nome: nome,
+          email: email,
+          matricula: matricula,
+          ativo: true
+        }
+      ])
+      .select()
+      .maybeSingle();
+
+    btnSalvarFuncionario.disabled = false;
+
+    if (error) {
+      console.error('Erro ao salvar no Supabase:', error);
+      showSystemAlert('Erro ao cadastrar funcionário no banco de dados. Verifique os dados.', 'danger');
+      return;
+    }
+
+    showSystemAlert(`Funcionário ${nome} cadastrado com sucesso! Matrícula: ${matricula}`, 'success');
+  } else {
+    btnSalvarFuncionario.disabled = false;
+    showSystemAlert(`Modo Offline: Matrícula ${matricula} gerada e pronta para uso local.`, 'success');
+  }
+
+  matriculaInput.value = matricula;
+  fecharModalCadastro();
+  buscarFuncionario();
 }
 
 // Event Listeners
@@ -378,8 +440,19 @@ document.addEventListener('DOMContentLoaded', () => {
   initCamera();
   fetchGeolocation();
 
-  if (btnGerarMatricula) {
-    btnGerarMatricula.addEventListener('click', gerarMatriculaExemplo);
+  if (btnAbrirModalCadastro) {
+    btnAbrirModalCadastro.addEventListener('click', abrirModalCadastro);
+  }
+  if (btnGerarNovaMatricula) {
+    btnGerarNovaMatricula.addEventListener('click', () => {
+      novaMatriculaInput.value = gerarCodigoMatricula();
+    });
+  }
+  if (btnCancelarCadastro) {
+    btnCancelarCadastro.addEventListener('click', fecharModalCadastro);
+  }
+  if (btnSalvarFuncionario) {
+    btnSalvarFuncionario.addEventListener('click', salvarNovoFuncionario);
   }
   btnBuscarFuncionario.addEventListener('click', buscarFuncionario);
   btnCapturarFoto.addEventListener('click', capturePhoto);

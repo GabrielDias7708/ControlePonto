@@ -442,9 +442,9 @@
             <label class="form-label" for="matriculaInput">Matrícula do Funcionário (ID)</label>
             <div style="display: flex; gap: 0.5rem;">
               <input type="text" id="matriculaInput" class="form-input" placeholder="Ex: MAT12345" autocomplete="off" />
-              <button id="btnGerarMatricula" class="btn btn-secondary" title="Gerar / Preencher Matrícula Exemplo" type="button">
-                <i data-lucide="sparkles"></i>
-                <span>Gerar</span>
+              <button id="btnAbrirModalCadastro" class="btn btn-secondary" title="Cadastrar Nova Matrícula / Funcionário" type="button">
+                <i data-lucide="user-plus"></i>
+                <span>Criar Matrícula</span>
               </button>
             </div>
           </div>
@@ -526,6 +526,45 @@
     </div>
 
   </main>
+
+  <!-- MODAL DE CADASTRO DE NOVO FUNCIONÁRIO -->
+  <div id="modalCadastroFuncionario" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="card-title" style="margin-bottom: 0;">
+        <i data-lucide="user-plus"></i>
+        <span>Cadastrar Novo Funcionário</span>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="novoNomeInput">Nome Completo</label>
+        <input type="text" id="novoNomeInput" class="form-input" placeholder="Ex: Maria Silva" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="novoEmailInput">E-mail</label>
+        <input type="email" id="novoEmailInput" class="form-input" placeholder="Ex: maria.silva@empresa.com" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="novaMatriculaInput">Código da Matrícula Gerado</label>
+        <div style="display: flex; gap: 0.5rem;">
+          <input type="text" id="novaMatriculaInput" class="form-input" readonly style="background-color: #F9FAFB;" />
+          <button id="btnGerarNovaMatricula" class="btn btn-secondary" type="button" title="Gerar Código de Matrícula">
+            <i data-lucide="refresh-cw"></i>
+            <span>Gerar Código</span>
+          </button>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1rem;">
+        <button id="btnCancelarCadastro" class="btn btn-secondary">Cancelar</button>
+        <button id="btnSalvarFuncionario" class="btn btn-primary">
+          <i data-lucide="save"></i>
+          <span>Salvar Matrícula</span>
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- MODAL DE SELEÇÃO E EMISSÃO DE COMPROVANTE (RF03) -->
   <div id="modalComprovante" class="modal-overlay hidden">
