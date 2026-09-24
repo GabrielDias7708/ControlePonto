@@ -2,8 +2,9 @@
 import { supabase } from './supabaseClient.js';
 
 const DB_NAME = 'PontoDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = 'registros_offline';
+const STORE_FUNCIONARIOS = 'funcionarios_local';
 
 // Chave fixa derivada/gerada para criptografia AES-GCM local
 let cryptoKey = null;
@@ -65,6 +66,9 @@ function openDB() {
       const db = event.target.result;
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+      }
+      if (!db.objectStoreNames.contains(STORE_FUNCIONARIOS)) {
+        db.createObjectStore(STORE_FUNCIONARIOS, { keyPath: 'matricula' });
       }
     };
 
@@ -168,6 +172,42 @@ export async function syncOfflineRegistros() {
   } catch (err) {
     console.error('Erro durante o processo de sincronização offline:', err);
   }
+}
+
+// Salvar funcionário localmente no IndexedDB
+export async function saveLocalFuncionario(funcObj) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([STORE_FUNCIONARIOS], 'readwrite');
+    const store = transaction.objectStore(STORE_FUNCIONARIOS);
+    const request = store.put(funcObj);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = (event) => reject(event.target.error);
+  });
+}
+
+// Buscar funcionário por matrícula no IndexedDB local
+export async function getLocalFuncionarioByMatricula(matricula) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([STORE_FUNCIONARIOS], 'readonly');
+    const store = transaction.objectStore(STORE_FUNCIONARIOS);
+    const request = store.get(matricula);
+    request.onsuccess = () => resolve(request.result || null);
+    request.onerror = (event) => reject(event.target.error);
+  });
+}
+
+// Obter todos os funcionários cadastrados localmente
+export async function getAllLocalFuncionarios() {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([STORE_FUNCIONARIOS], 'readonly');
+    const store = transaction.objectStore(STORE_FUNCIONARIOS);
+    const request = store.getAll();
+    request.onsuccess = () => resolve(request.result || []);
+    request.onerror = (event) => reject(event.target.error);
+  });
 }
 
 // Escutar retorno da conexão online para disparar sincronização

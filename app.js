@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient.js';
-import { saveOfflineRegistro, syncOfflineRegistros } from './db.js';
+import { saveOfflineRegistro, syncOfflineRegistros, saveLocalFuncionario, getLocalFuncionarioByMatricula, getAllLocalFuncionarios } from './db.js';
 
 // Estados Globais
 let currentFuncionario = null;
@@ -228,40 +228,52 @@ async function buscarFuncionario() {
     return;
   }
 
+  let funcEncontrado = null;
+
   if (navigator.onLine) {
-    const { data, error } = await supabase
-      .from('funcionarios')
-      .select('*, escala:escalas(*)')
-      .eq('matricula', matricula)
-      .eq('ativo', true)
-      .maybeSingle();
+    try {
+      const { data, error } = await supabase
+        .from('funcionarios')
+        .select('*, escala:escalas(*)')
+        .eq('matricula', matricula)
+        .eq('ativo', true)
+        .maybeSingle();
 
-    if (error || !data) {
-      showSystemAlert('Matrícula não encontrada ou funcionário inativo.', 'danger');
-      handleFailedAttempt();
-      currentFuncionario = null;
-      funcionarioDetails.classList.add('hidden');
-      checkCanRegister();
-      return;
+      if (!error && data) {
+        funcEncontrado = data;
+      }
+    } catch (e) {
+      console.warn('Erro ao consultar Supabase:', e);
     }
+  }
 
-    currentFuncionario = data;
+  // Tentar buscar na base local se não encontrou no Supabase
+  if (!funcEncontrado) {
+    try {
+      const localFunc = await getLocalFuncionarioByMatricula(matricula);
+      if (localFunc && localFunc.ativo) {
+        funcEncontrado = {
+          ...localFunc,
+          escala: { nome: 'Escala Padrão Local', tolerancia_minutos: 10 }
+        };
+      }
+    } catch (e) {
+      console.warn('Erro ao consultar funcionário local:', e);
+    }
+  }
+
+  if (funcEncontrado) {
+    currentFuncionario = funcEncontrado;
     failedAttemptsCount = 0;
-    funcionarioNome.textContent = data.nome;
-    funcionarioEscala.textContent = `Escala: ${data.escala ? data.escala.nome : 'Padrão'} (Tolerância: ${data.escala?.tolerancia_minutos || 10} min)`;
+    funcionarioNome.textContent = funcEncontrado.nome;
+    funcionarioEscala.textContent = `Escala: ${funcEncontrado.escala ? funcEncontrado.escala.nome : 'Padrão'} (Tolerância: ${funcEncontrado.escala?.tolerancia_minutos || 10} min)`;
     funcionarioDetails.classList.remove('hidden');
     checkCanRegister();
   } else {
-    // Modo offline: simulação / busca local parametrizada
-    currentFuncionario = {
-      id: '00000000-0000-0000-0000-000000000000',
-      matricula: matricula,
-      nome: `Funcionário (${matricula})`,
-      escala: { nome: 'Escala Local Offline', tolerancia_minutos: 10 }
-    };
-    funcionarioNome.textContent = currentFuncionario.nome;
-    funcionarioEscala.textContent = `Escala: Modo Offline (Tolerância: 10 min)`;
-    funcionarioDetails.classList.remove('hidden');
+    showSystemAlert('Matrícula não encontrada ou funcionário inativo.', 'danger');
+    handleFailedAttempt();
+    currentFuncionario = null;
+    funcionarioDetails.classList.add('hidden');
     checkCanRegister();
   }
 }
@@ -469,28 +481,48 @@ async function carregarRegistrosPontoAdmin() {
 async function carregarFuncionariosAdmin() {
   tabelaFuncionariosBody.innerHTML = `<tr><td colspan="4" style="padding: 1rem; text-align: center; color: var(--text-muted);">Carregando funcionários...</td></tr>`;
 
+  let listaFuncionarios = [];
+
   if (navigator.onLine) {
-    const { data, error } = await supabase
-      .from('funcionarios')
-      .select('*')
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('funcionarios')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    if (error || !data || data.length === 0) {
-      tabelaFuncionariosBody.innerHTML = `<tr><td colspan="4" style="padding: 1rem; text-align: center; color: var(--text-muted);">Nenhum funcionário cadastrado.</td></tr>`;
-      return;
+      if (!error && data) {
+        listaFuncionarios = data;
+      }
+    } catch (e) {
+      console.warn('Erro ao carregar funcionários do Supabase:', e);
     }
-
-    tabelaFuncionariosBody.innerHTML = data.map(func => `
-      <tr style="border-bottom: 1px solid var(--border-color);">
-        <td style="padding: 0.75rem; font-weight: bold;">${func.matricula}</td>
-        <td style="padding: 0.75rem;">${func.nome}</td>
-        <td style="padding: 0.75rem;">${func.email}</td>
-        <td style="padding: 0.75rem;"><span style="color: ${func.ativo ? 'var(--success-color)' : 'var(--danger-color)'}; font-weight: bold;">${func.ativo ? 'Ativo' : 'Inativo'}</span></td>
-      </tr>
-    `).join('');
-  } else {
-    tabelaFuncionariosBody.innerHTML = `<tr><td colspan="4" style="padding: 1rem; text-align: center; color: var(--text-muted);">Modo Offline. Conecte-se à internet para listar funcionários da nuvem.</td></tr>`;
   }
+
+  // Combinar com os locais do IndexedDB
+  try {
+    const locais = await getAllLocalFuncionarios();
+    for (const loc of locais) {
+      if (!listaFuncionarios.some(f => f.matricula === loc.matricula)) {
+        listaFuncionarios.unshift(loc);
+      }
+    }
+  } catch (e) {
+    console.warn('Erro ao carregar funcionários locais:', e);
+  }
+
+  if (listaFuncionarios.length === 0) {
+    tabelaFuncionariosBody.innerHTML = `<tr><td colspan="4" style="padding: 1rem; text-align: center; color: var(--text-muted);">Nenhum funcionário cadastrado.</td></tr>`;
+    return;
+  }
+
+  tabelaFuncionariosBody.innerHTML = listaFuncionarios.map(func => `
+    <tr style="border-bottom: 1px solid var(--border-color);">
+      <td style="padding: 0.75rem; font-weight: bold;">${func.matricula}</td>
+      <td style="padding: 0.75rem;">${func.nome}</td>
+      <td style="padding: 0.75rem;">${func.email}</td>
+      <td style="padding: 0.75rem;"><span style="color: ${func.ativo ? 'var(--success-color)' : 'var(--danger-color)'}; font-weight: bold;">${func.ativo ? 'Ativo' : 'Inativo'}</span></td>
+    </tr>
+  `).join('');
 }
 
 // Gestão de Cadastro de Novo Funcionário e Matrícula
@@ -511,38 +543,54 @@ async function salvarNovoFuncionario() {
 
   btnSalvarFuncionario.disabled = true;
 
+  const novoFuncObj = {
+    id: crypto.randomUUID ? crypto.randomUUID() : 'func-' + Date.now(),
+    nome: nome,
+    email: email,
+    matricula: matricula,
+    ativo: true,
+    created_at: new Date().toISOString()
+  };
+
+  let salvouSupabase = false;
+
   if (navigator.onLine) {
-    const { data, error } = await supabase
-      .from('funcionarios')
-      .insert([
-        {
-          nome: nome,
-          email: email,
-          matricula: matricula,
-          ativo: true
-        }
-      ])
-      .select()
-      .maybeSingle();
+    try {
+      const { data, error } = await supabase
+        .from('funcionarios')
+        .insert([novoFuncObj])
+        .select()
+        .maybeSingle();
 
-    btnSalvarFuncionario.disabled = false;
-
-    if (error) {
-      console.error('Erro ao salvar no Supabase:', error);
-      showSystemAlert('Erro ao cadastrar funcionário no banco de dados. Verifique os dados.', 'danger');
-      return;
+      if (!error) {
+        salvouSupabase = true;
+      } else {
+        console.warn('Alerta Supabase (salvando em cópia local):', error);
+      }
+    } catch (err) {
+      console.warn('Exceção Supabase (salvando em cópia local):', err);
     }
-
-    showSystemAlert(`Funcionário ${nome} cadastrado com sucesso! Matrícula: ${matricula}`, 'success');
-  } else {
-    btnSalvarFuncionario.disabled = false;
-    showSystemAlert(`Modo Offline: Matrícula ${matricula} gerada e pronta para uso local.`, 'success');
   }
+
+  // Sempre garantir salvamento local no IndexedDB para redundância/fallback
+  try {
+    await saveLocalFuncionario(novoFuncObj);
+  } catch (e) {
+    console.warn('Erro ao salvar no IndexedDB local:', e);
+  }
+
+  btnSalvarFuncionario.disabled = false;
 
   matriculaInput.value = matricula;
   novoNomeInput.value = '';
   novoEmailInput.value = '';
-  showSystemAlert(`Funcionário cadastrado com sucesso! Matrícula: ${matricula}`, 'success');
+
+  if (salvouSupabase) {
+    showSystemAlert(`Funcionário ${nome} cadastrado com sucesso no Supabase! Matrícula: ${matricula}`, 'success');
+  } else {
+    showSystemAlert(`Funcionário ${nome} cadastrado e salvo com sucesso localmente! Matrícula: ${matricula}`, 'success');
+  }
+
   buscarFuncionario();
 }
 
