@@ -11,8 +11,8 @@ let cryptoKey = null;
 
 async function getCryptoKey() {
   if (cryptoKey) return cryptoKey;
-  // Chave de 256 bits estática para o dispositivo local
-  const rawKey = new TextEncoder().encode('PONTO_PWA_SECRET_LOCAL_KEY_32B!');
+  // Chave de 256 bits estática para o dispositivo local (exatamente 32 bytes)
+  const rawKey = new TextEncoder().encode('PONTO_PWA_SECRET_LOCAL_KEY_32B!!');
   cryptoKey = await crypto.subtle.importKey(
     'raw',
     rawKey,

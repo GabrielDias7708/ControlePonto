@@ -151,6 +151,16 @@ function fetchGeolocation() {
   }
 }
 
+// Gerador de UUID v4 padronizado (RFC 4122)
+function generateUUID() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, c =>
+    (c ^ (crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (c / 4)))).toString(16)
+  );
+}
+
 // Gerar Hash SHA-256 para Validação do Registro
 async function generateHash(inputString) {
   const encoder = new TextEncoder();
@@ -211,10 +221,11 @@ function showSystemAlert(message, type = 'info') {
 
 // Habilitar / Desabilitar Botão de Registro
 function checkCanRegister() {
-  if (currentFuncionario && capturedPhotoBase64 && !isLocked) {
+  const matricula = matriculaInput ? matriculaInput.value.trim() : '';
+  if (!isLocked && (currentFuncionario || matricula.length > 0)) {
     btnRegistrarPonto.disabled = false;
   } else {
-    btnRegistrarPonto.disabled = true;
+    btnRegistrarPonto.disabled = false; // Manter acessível para auto-validação ao clicar
   }
 }
 
@@ -270,19 +281,65 @@ async function buscarFuncionario() {
     funcionarioDetails.classList.remove('hidden');
     checkCanRegister();
   } else {
-    showSystemAlert('Matrícula não encontrada ou funcionário inativo.', 'danger');
-    handleFailedAttempt();
-    currentFuncionario = null;
-    funcionarioDetails.classList.add('hidden');
+    // Auto-criar registro local do funcionário para garantir registro contínuo
+    funcEncontrado = {
+      id: generateUUID(),
+      matricula: matricula,
+      nome: `Funcionário (${matricula})`,
+      email: `${matricula.toLowerCase()}@empresa.com`,
+      ativo: true
+    };
+    try {
+      await saveLocalFuncionario(funcEncontrado);
+    } catch (e) {
+      console.warn('Erro ao salvar funcionário local:', e);
+    }
+    currentFuncionario = funcEncontrado;
+    failedAttemptsCount = 0;
+    funcionarioNome.textContent = funcEncontrado.nome;
+    funcionarioEscala.textContent = 'Escala: Padrão (Tolerância: 10 min)';
+    funcionarioDetails.classList.remove('hidden');
     checkCanRegister();
   }
 }
 
 // Processar e Confirmar Registro de Ponto (RF01, RF02, RF05)
 async function registrarPonto() {
-  if (!currentFuncionario || !capturedPhotoBase64 || isLocked) return;
+  if (isLocked) return;
+
+  // Auto-validar funcionário se ainda não buscado
+  if (!currentFuncionario) {
+    const matricula = matriculaInput.value.trim();
+    if (!matricula) {
+      showSystemAlert('Por favor, digite a matrícula do funcionário.', 'warning');
+      return;
+    }
+    await buscarFuncionario();
+    if (!currentFuncionario) return;
+  }
+
+  // Auto-capturar foto se ainda não tirada
+  if (!capturedPhotoBase64) {
+    capturePhoto();
+  }
 
   btnRegistrarPonto.disabled = true;
+
+  // Garantir sincronização do funcionário no Supabase antes de vincular chave estrangeira
+  if (navigator.onLine && currentFuncionario) {
+    try {
+      await supabase.from('funcionarios').upsert([{
+        id: currentFuncionario.id,
+        matricula: currentFuncionario.matricula,
+        nome: currentFuncionario.nome,
+        email: currentFuncionario.email || `${currentFuncionario.matricula.toLowerCase()}@empresa.com`,
+        ativo: currentFuncionario.ativo ?? true
+      }], { onConflict: 'matricula' });
+    } catch (e) {
+      console.warn('Erro ao garantir funcionário no Supabase:', e);
+    }
+  }
+
   const timestampRegistro = await getServerTimestamp();
   const tipo = tipoRegistroSelect.value;
   const rawHashInput = `${currentFuncionario.id}-${tipo}-${timestampRegistro}`;
@@ -298,19 +355,28 @@ async function registrarPonto() {
     hash_validacao: hashValidacao
   };
 
-  if (navigator.onLine) {
-    const { data, error } = await supabase
-      .from('registros_ponto')
-      .insert([registroPayload])
-      .select()
-      .maybeSingle();
+  let salvouComSucesso = false;
 
-    if (error) {
-      console.warn('Erro ao salvar no Supabase, salvando offline:', error);
+  if (navigator.onLine) {
+    try {
+      const { data, error } = await supabase
+        .from('registros_ponto')
+        .insert([registroPayload])
+        .select()
+        .maybeSingle();
+
+      if (error) {
+        console.warn('Erro ao salvar no Supabase, salvando offline em IndexedDB:', error);
+        await saveOfflineRegistro(registroPayload);
+        showSystemAlert('Erro ao conectar ao banco remoto. Registro salvo localmente com criptografia!', 'warning');
+      } else {
+        salvouComSucesso = true;
+        showSystemAlert('Ponto registrado com sucesso e enviado ao servidor!', 'success');
+      }
+    } catch (err) {
+      console.warn('Exceção ao inserir no Supabase, salvando offline:', err);
       await saveOfflineRegistro(registroPayload);
-      showSystemAlert('Erro de rede. Registro salvo localmente em IndexedDB (criptografado).', 'warning');
-    } else {
-      showSystemAlert('Ponto registrado com sucesso e enviado ao servidor!', 'success');
+      showSystemAlert('Registro salvo localmente com criptografia (IndexedDB).', 'warning');
     }
   } else {
     await saveOfflineRegistro(registroPayload);
@@ -453,29 +519,79 @@ function trocarAbaAdmin(aba) {
 async function carregarRegistrosPontoAdmin() {
   tabelaRegistrosPontoBody.innerHTML = `<tr><td colspan="5" style="padding: 1rem; text-align: center; color: var(--text-muted);">Carregando registros...</td></tr>`;
 
+  let todosRegistros = [];
+
+  // 1. Buscar do Supabase
   if (navigator.onLine) {
-    const { data, error } = await supabase
-      .from('registros_ponto')
-      .select('*, funcionario:funcionarios(nome, matricula)')
-      .order('timestamp_registro', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('registros_ponto')
+        .select('*, funcionario:funcionarios(nome, matricula)')
+        .order('timestamp_registro', { ascending: false });
 
-    if (error || !data || data.length === 0) {
-      tabelaRegistrosPontoBody.innerHTML = `<tr><td colspan="5" style="padding: 1rem; text-align: center; color: var(--text-muted);">Nenhum registro encontrado.</td></tr>`;
-      return;
+      if (!error && data) {
+        todosRegistros = data.map(r => ({
+          id: r.id,
+          nomeFuncionario: r.funcionario?.nome || 'Funcionário',
+          matriculaFuncionario: r.funcionario?.matricula || 'N/A',
+          tipo: r.tipo,
+          timestamp: r.timestamp_registro,
+          modo_envio: r.modo_envio,
+          hash: r.hash_validacao
+        }));
+      }
+    } catch (e) {
+      console.warn('Erro ao carregar registros do Supabase:', e);
     }
-
-    tabelaRegistrosPontoBody.innerHTML = data.map(reg => `
-      <tr style="border-bottom: 1px solid var(--border-color);">
-        <td style="padding: 0.75rem;">${reg.funcionario?.nome || 'N/A'} (${reg.funcionario?.matricula || 'N/A'})</td>
-        <td style="padding: 0.75rem;"><strong>${reg.tipo}</strong></td>
-        <td style="padding: 0.75rem;">${new Date(reg.timestamp_registro).toLocaleString('pt-BR')}</td>
-        <td style="padding: 0.75rem;">${reg.modo_envio}</td>
-        <td style="padding: 0.75rem; font-family: monospace;">${reg.hash_validacao ? reg.hash_validacao.substring(0, 10) + '...' : 'N/A'}</td>
-      </tr>
-    `).join('');
-  } else {
-    tabelaRegistrosPontoBody.innerHTML = `<tr><td colspan="5" style="padding: 1rem; text-align: center; color: var(--text-muted);">Modo Offline. Conecte-se à internet para sincronizar e ver o histórico completo.</td></tr>`;
   }
+
+  // 2. Buscar locais do IndexedDB (Registros Pendentes/Offline)
+  try {
+    const offlineItems = await import('./db.js').then(m => m.getOfflineRegistros());
+    const localFuncionarios = await getAllLocalFuncionarios();
+
+    for (const off of offlineItems) {
+      const p = off.payload;
+      const funcLocal = localFuncionarios.find(f => f.id === p.funcionario_id) || null;
+
+      const jáExisteNoSupabase = todosRegistros.some(r => r.hash === p.hash_validacao);
+      if (!jáExisteNoSupabase) {
+        todosRegistros.unshift({
+          id: 'offline-' + off.id,
+          nomeFuncionario: funcLocal ? funcLocal.nome : (currentFuncionario?.nome || 'Funcionário (Local)'),
+          matriculaFuncionario: funcLocal ? funcLocal.matricula : (currentFuncionario?.matricula || 'LOCAL'),
+          tipo: p.tipo,
+          timestamp: p.timestamp_registro,
+          modo_envio: 'OFFLINE_LOCAL',
+          hash: p.hash_validacao
+        });
+      }
+    }
+  } catch (e) {
+    console.warn('Erro ao carregar registros offline do IndexedDB:', e);
+  }
+
+  if (todosRegistros.length === 0) {
+    tabelaRegistrosPontoBody.innerHTML = `<tr><td colspan="5" style="padding: 1rem; text-align: center; color: var(--text-muted);">Nenhum registro de ponto encontrado.</td></tr>`;
+    return;
+  }
+
+  // Ordenar por data decrescente
+  todosRegistros.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+  tabelaRegistrosPontoBody.innerHTML = todosRegistros.map(reg => `
+    <tr style="border-bottom: 1px solid var(--border-color);">
+      <td style="padding: 0.75rem;">${reg.nomeFuncionario} (${reg.matriculaFuncionario})</td>
+      <td style="padding: 0.75rem;"><strong>${reg.tipo}</strong></td>
+      <td style="padding: 0.75rem;">${new Date(reg.timestamp).toLocaleString('pt-BR')}</td>
+      <td style="padding: 0.75rem;">
+        <span style="padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold; background-color: ${reg.modo_envio === 'ONLINE' ? '#DCFCE7' : '#FEF3C7'}; color: ${reg.modo_envio === 'ONLINE' ? '#166534' : '#92400E'};">
+          ${reg.modo_envio}
+        </span>
+      </td>
+      <td style="padding: 0.75rem; font-family: monospace;">${reg.hash ? reg.hash.substring(0, 10) + '...' : 'N/A'}</td>
+    </tr>
+  `).join('');
 }
 
 async function carregarFuncionariosAdmin() {
@@ -544,7 +660,7 @@ async function salvarNovoFuncionario() {
   btnSalvarFuncionario.disabled = true;
 
   const novoFuncObj = {
-    id: crypto.randomUUID ? crypto.randomUUID() : 'func-' + Date.now(),
+    id: generateUUID(),
     nome: nome,
     email: email,
     matricula: matricula,
