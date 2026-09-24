@@ -1,7 +1,7 @@
 // Módulo de Conexão com o Supabase via CDN (ES Modules)
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
-// Credenciais do Projeto Supabase
+// Credenciais do Projeto Supabase (Chave Pública / Anon)
 const SUPABASE_URL = 'https://zrnrbwhpogbsfctsebsg.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_n6DpQ9SJeSBxD7TK8ZFzhw_eVKrivcu';
 
