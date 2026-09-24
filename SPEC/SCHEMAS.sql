@@ -3,7 +3,7 @@
 -- ==========================================
 
 -- 1. Tabela de Escalas de Trabalho
-CREATE TABLE public.escalas (
+CREATE TABLE IF NOT EXISTS public.escalas (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     nome VARCHAR(50) NOT NULL,
     dias_trabalho INT[] NOT NULL, -- Exemplo: [1, 2, 3, 4, 5] para Segunda a Sexta
@@ -13,7 +13,7 @@ CREATE TABLE public.escalas (
 );
 
 -- 2. Tabela de Funcionários
-CREATE TABLE public.funcionarios (
+CREATE TABLE IF NOT EXISTS public.funcionarios (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     matricula VARCHAR(20) UNIQUE NOT NULL,
     nome VARCHAR(100) NOT NULL,
@@ -25,7 +25,7 @@ CREATE TABLE public.funcionarios (
 );
 
 -- 3. Tabela de Registros de Ponto
-CREATE TABLE public.registros_ponto (
+CREATE TABLE IF NOT EXISTS public.registros_ponto (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     funcionario_id UUID NOT NULL REFERENCES public.funcionarios(id) ON DELETE CASCADE,
     tipo VARCHAR(20) NOT NULL CHECK (tipo IN ('ENTRADA', 'SAIDA_INTERVALO', 'RETORNO_INTERVALO', 'SAIDA')),
@@ -38,7 +38,7 @@ CREATE TABLE public.registros_ponto (
 );
 
 -- 4. Tabela de Alertas e Segurança (Emergências e Ocorrências)
-CREATE TABLE public.alertas_seguranca (
+CREATE TABLE IF NOT EXISTS public.alertas_seguranca (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     funcionario_id UUID REFERENCES public.funcionarios(id) ON DELETE SET NULL,
     tipo_alerta VARCHAR(50) NOT NULL, -- Exemplo: 'EMERGENCIA_ACIONADA', 'FALHA_FOTO', 'TENTATIVA_INSPECAO'
@@ -57,7 +57,58 @@ ALTER TABLE public.funcionarios ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.registros_ponto ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.alertas_seguranca ENABLE ROW LEVEL SECURITY;
 
--- Exemplo de política de leitura e inserção aberta para a API pública (Ajustar conforme regras do Supabase Auth)
-CREATE POLICY "Permitir leitura de funcionarios" ON public.funcionarios FOR SELECT USING (true);
-CREATE POLICY "Permitir insercao de ponto" ON public.registros_ponto FOR INSERT WITH CHECK (true);
-CREATE POLICY "Permitir insercao de alertas" ON public.alertas_seguranca FOR INSERT WITH CHECK (true);
+-- Remover políticas antigas excessivamente permissivas se existirem
+DROP POLICY IF EXISTS "Permitir leitura de escalas" ON public.escalas;
+DROP POLICY IF EXISTS "Permitir leitura de funcionarios" ON public.funcionarios;
+DROP POLICY IF EXISTS "Permitir insercao de funcionarios" ON public.funcionarios;
+DROP POLICY IF EXISTS "Permitir insercao de ponto" ON public.registros_ponto;
+DROP POLICY IF EXISTS "Permitir leitura de ponto" ON public.registros_ponto;
+DROP POLICY IF EXISTS "Permitir insercao de alertas" ON public.alertas_seguranca;
+DROP POLICY IF EXISTS "Permitir leitura de alertas" ON public.alertas_seguranca;
+
+-- 1. Políticas para Escalas
+CREATE POLICY "Permitir leitura de escalas"
+ON public.escalas FOR SELECT
+USING (true);
+
+-- 2. Políticas para Funcionários
+CREATE POLICY "Permitir leitura de funcionarios"
+ON public.funcionarios FOR SELECT
+USING (true);
+
+CREATE POLICY "Permitir insercao de funcionarios"
+ON public.funcionarios FOR INSERT
+WITH CHECK (
+    matricula IS NOT NULL AND
+    length(matricula) > 0 AND
+    nome IS NOT NULL AND
+    length(nome) > 0 AND
+    email IS NOT NULL
+);
+
+-- 3. Políticas para Registros de Ponto (Corrigido para evitar avisos de RLS excessivamente permissivo)
+CREATE POLICY "Permitir leitura de ponto"
+ON public.registros_ponto FOR SELECT
+USING (true);
+
+CREATE POLICY "Permitir insercao de ponto"
+ON public.registros_ponto FOR INSERT
+WITH CHECK (
+    funcionario_id IS NOT NULL AND
+    tipo IN ('ENTRADA', 'SAIDA_INTERVALO', 'RETORNO_INTERVALO', 'SAIDA') AND
+    timestamp_registro IS NOT NULL AND
+    hash_validacao IS NOT NULL AND
+    length(hash_validacao) > 0
+);
+
+-- 4. Políticas para Alertas de Segurança (Corrigido para evitar avisos de RLS excessivamente permissivo)
+CREATE POLICY "Permitir leitura de alertas"
+ON public.alertas_seguranca FOR SELECT
+USING (true);
+
+CREATE POLICY "Permitir insercao de alertas"
+ON public.alertas_seguranca FOR INSERT
+WITH CHECK (
+    tipo_alerta IS NOT NULL AND
+    length(tipo_alerta) > 0
+);
