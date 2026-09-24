@@ -14,16 +14,35 @@ let lastRegistroCreated = null;
 
 // Elementos do DOM
 const matriculaInput = document.getElementById('matriculaInput');
-const btnAbrirModalCadastro = document.getElementById('btnAbrirModalCadastro');
 const btnBuscarFuncionario = document.getElementById('btnBuscarFuncionario');
 
-const modalCadastroFuncionario = document.getElementById('modalCadastroFuncionario');
+// Admin DOM
+const btnAbrirLoginAdmin = document.getElementById('btnAbrirLoginAdmin');
+const modalLoginAdmin = document.getElementById('modalLoginAdmin');
+const adminUsuarioInput = document.getElementById('adminUsuarioInput');
+const adminSenhaInput = document.getElementById('adminSenhaInput');
+const btnCancelarLoginAdmin = document.getElementById('btnCancelarLoginAdmin');
+const btnEntrarAdmin = document.getElementById('btnEntrarAdmin');
+
+const modalPainelAdmin = document.getElementById('modalPainelAdmin');
+const btnFecharPainelAdmin = document.getElementById('btnFecharPainelAdmin');
+
+const abaBtnCadastro = document.getElementById('abaBtnCadastro');
+const abaBtnRegistros = document.getElementById('abaBtnRegistros');
+const abaBtnPessoas = document.getElementById('abaBtnPessoas');
+
+const abaConteudoCadastro = document.getElementById('abaConteudoCadastro');
+const abaConteudoRegistros = document.getElementById('abaConteudoRegistros');
+const abaConteudoPessoas = document.getElementById('abaConteudoPessoas');
+
 const novoNomeInput = document.getElementById('novoNomeInput');
 const novoEmailInput = document.getElementById('novoEmailInput');
 const novaMatriculaInput = document.getElementById('novaMatriculaInput');
 const btnGerarNovaMatricula = document.getElementById('btnGerarNovaMatricula');
-const btnCancelarCadastro = document.getElementById('btnCancelarCadastro');
 const btnSalvarFuncionario = document.getElementById('btnSalvarFuncionario');
+
+const tabelaRegistrosPontoBody = document.getElementById('tabelaRegistrosPontoBody');
+const tabelaFuncionariosBody = document.getElementById('tabelaFuncionariosBody');
 const funcionarioDetails = document.getElementById('funcionarioDetails');
 const funcionarioNome = document.getElementById('funcionarioNome');
 const funcionarioEscala = document.getElementById('funcionarioEscala');
@@ -372,21 +391,112 @@ async function acionarEmergencia() {
   }
 }
 
+// Gestão da Área Administrativa (Login admin / 12345 & Painel)
+function abrirLoginAdmin() {
+  adminUsuarioInput.value = '';
+  adminSenhaInput.value = '';
+  modalLoginAdmin.classList.remove('hidden');
+}
+
+function fecharLoginAdmin() {
+  modalLoginAdmin.classList.add('hidden');
+}
+
+function autenticarAdmin() {
+  const user = adminUsuarioInput.value.trim();
+  const pass = adminSenhaInput.value.trim();
+
+  if (user === 'admin' && pass === '12345') {
+    fecharLoginAdmin();
+    abrirPainelAdmin();
+    showSystemAlert('Acesso administrativo concedido!', 'success');
+  } else {
+    showSystemAlert('Usuário ou senha de administrador incorretos.', 'danger');
+  }
+}
+
+function abrirPainelAdmin() {
+  novaMatriculaInput.value = gerarCodigoMatricula();
+  modalPainelAdmin.classList.remove('hidden');
+  trocarAbaAdmin('cadastro');
+}
+
+function fecharPainelAdmin() {
+  modalPainelAdmin.classList.add('hidden');
+}
+
+function trocarAbaAdmin(aba) {
+  abaBtnCadastro.className = 'btn ' + (aba === 'cadastro' ? 'btn-primary' : 'btn-secondary');
+  abaBtnRegistros.className = 'btn ' + (aba === 'registros' ? 'btn-primary' : 'btn-secondary');
+  abaBtnPessoas.className = 'btn ' + (aba === 'pessoas' ? 'btn-primary' : 'btn-secondary');
+
+  abaConteudoCadastro.classList.toggle('hidden', aba !== 'cadastro');
+  abaConteudoRegistros.classList.toggle('hidden', aba !== 'registros');
+  abaConteudoPessoas.classList.toggle('hidden', aba !== 'pessoas');
+
+  if (aba === 'registros') carregarRegistrosPontoAdmin();
+  if (aba === 'pessoas') carregarFuncionariosAdmin();
+}
+
+async function carregarRegistrosPontoAdmin() {
+  tabelaRegistrosPontoBody.innerHTML = `<tr><td colspan="5" style="padding: 1rem; text-align: center; color: var(--text-muted);">Carregando registros...</td></tr>`;
+
+  if (navigator.onLine) {
+    const { data, error } = await supabase
+      .from('registros_ponto')
+      .select('*, funcionario:funcionarios(nome, matricula)')
+      .order('timestamp_registro', { ascending: false });
+
+    if (error || !data || data.length === 0) {
+      tabelaRegistrosPontoBody.innerHTML = `<tr><td colspan="5" style="padding: 1rem; text-align: center; color: var(--text-muted);">Nenhum registro encontrado.</td></tr>`;
+      return;
+    }
+
+    tabelaRegistrosPontoBody.innerHTML = data.map(reg => `
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 0.75rem;">${reg.funcionario?.nome || 'N/A'} (${reg.funcionario?.matricula || 'N/A'})</td>
+        <td style="padding: 0.75rem;"><strong>${reg.tipo}</strong></td>
+        <td style="padding: 0.75rem;">${new Date(reg.timestamp_registro).toLocaleString('pt-BR')}</td>
+        <td style="padding: 0.75rem;">${reg.modo_envio}</td>
+        <td style="padding: 0.75rem; font-family: monospace;">${reg.hash_validacao ? reg.hash_validacao.substring(0, 10) + '...' : 'N/A'}</td>
+      </tr>
+    `).join('');
+  } else {
+    tabelaRegistrosPontoBody.innerHTML = `<tr><td colspan="5" style="padding: 1rem; text-align: center; color: var(--text-muted);">Modo Offline. Conecte-se à internet para sincronizar e ver o histórico completo.</td></tr>`;
+  }
+}
+
+async function carregarFuncionariosAdmin() {
+  tabelaFuncionariosBody.innerHTML = `<tr><td colspan="4" style="padding: 1rem; text-align: center; color: var(--text-muted);">Carregando funcionários...</td></tr>`;
+
+  if (navigator.onLine) {
+    const { data, error } = await supabase
+      .from('funcionarios')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error || !data || data.length === 0) {
+      tabelaFuncionariosBody.innerHTML = `<tr><td colspan="4" style="padding: 1rem; text-align: center; color: var(--text-muted);">Nenhum funcionário cadastrado.</td></tr>`;
+      return;
+    }
+
+    tabelaFuncionariosBody.innerHTML = data.map(func => `
+      <tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 0.75rem; font-weight: bold;">${func.matricula}</td>
+        <td style="padding: 0.75rem;">${func.nome}</td>
+        <td style="padding: 0.75rem;">${func.email}</td>
+        <td style="padding: 0.75rem;"><span style="color: ${func.ativo ? 'var(--success-color)' : 'var(--danger-color)'}; font-weight: bold;">${func.ativo ? 'Ativo' : 'Inativo'}</span></td>
+      </tr>
+    `).join('');
+  } else {
+    tabelaFuncionariosBody.innerHTML = `<tr><td colspan="4" style="padding: 1rem; text-align: center; color: var(--text-muted);">Modo Offline. Conecte-se à internet para listar funcionários da nuvem.</td></tr>`;
+  }
+}
+
 // Gestão de Cadastro de Novo Funcionário e Matrícula
 function gerarCodigoMatricula() {
   const randomNum = Math.floor(10000 + Math.random() * 90000);
   return `MAT${randomNum}`;
-}
-
-function abrirModalCadastro() {
-  novoNomeInput.value = '';
-  novoEmailInput.value = '';
-  novaMatriculaInput.value = gerarCodigoMatricula();
-  modalCadastroFuncionario.classList.remove('hidden');
-}
-
-function fecharModalCadastro() {
-  modalCadastroFuncionario.classList.add('hidden');
 }
 
 async function salvarNovoFuncionario() {
@@ -430,7 +540,9 @@ async function salvarNovoFuncionario() {
   }
 
   matriculaInput.value = matricula;
-  fecharModalCadastro();
+  novoNomeInput.value = '';
+  novoEmailInput.value = '';
+  showSystemAlert(`Funcionário cadastrado com sucesso! Matrícula: ${matricula}`, 'success');
   buscarFuncionario();
 }
 
@@ -440,16 +552,20 @@ document.addEventListener('DOMContentLoaded', () => {
   initCamera();
   fetchGeolocation();
 
-  if (btnAbrirModalCadastro) {
-    btnAbrirModalCadastro.addEventListener('click', abrirModalCadastro);
-  }
+  if (btnAbrirLoginAdmin) btnAbrirLoginAdmin.addEventListener('click', abrirLoginAdmin);
+  if (btnCancelarLoginAdmin) btnCancelarLoginAdmin.addEventListener('click', fecharLoginAdmin);
+  if (btnEntrarAdmin) btnEntrarAdmin.addEventListener('click', autenticarAdmin);
+
+  if (btnFecharPainelAdmin) btnFecharPainelAdmin.addEventListener('click', fecharPainelAdmin);
+
+  if (abaBtnCadastro) abaBtnCadastro.addEventListener('click', () => trocarAbaAdmin('cadastro'));
+  if (abaBtnRegistros) abaBtnRegistros.addEventListener('click', () => trocarAbaAdmin('registros'));
+  if (abaBtnPessoas) abaBtnPessoas.addEventListener('click', () => trocarAbaAdmin('pessoas'));
+
   if (btnGerarNovaMatricula) {
     btnGerarNovaMatricula.addEventListener('click', () => {
       novaMatriculaInput.value = gerarCodigoMatricula();
     });
-  }
-  if (btnCancelarCadastro) {
-    btnCancelarCadastro.addEventListener('click', fecharModalCadastro);
   }
   if (btnSalvarFuncionario) {
     btnSalvarFuncionario.addEventListener('click', salvarNovoFuncionario);
