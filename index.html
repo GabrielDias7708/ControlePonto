@@ -411,6 +411,10 @@
         <i data-lucide="wifi"></i>
         <span id="networkStatusText">Online</span>
       </div>
+      <button id="btnAbrirLoginAdmin" class="btn btn-secondary" title="Área Administrativa">
+        <i data-lucide="shield"></i>
+        <span>Admin</span>
+      </button>
     </div>
   </header>
 
@@ -520,6 +524,142 @@
     </div>
 
   </main>
+
+  <!-- MODAL DE LOGIN ADMIN -->
+  <div id="modalLoginAdmin" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="card-title" style="margin-bottom: 0;">
+        <i data-lucide="lock"></i>
+        <span>Acesso Administrativo</span>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="adminUsuarioInput">Usuário</label>
+        <input type="text" id="adminUsuarioInput" class="form-input" placeholder="Usuário Admin (Padrão: admin)" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="adminSenhaInput">Senha</label>
+        <input type="password" id="adminSenhaInput" class="form-input" placeholder="Senha (Padrão: 12345)" />
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1rem;">
+        <button id="btnCancelarLoginAdmin" class="btn btn-secondary">Cancelar</button>
+        <button id="btnEntrarAdmin" class="btn btn-primary">
+          <i data-lucide="log-in"></i>
+          <span>Entrar</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DO PAINEL ADMIN -->
+  <div id="modalPainelAdmin" class="modal-overlay hidden">
+    <div class="modal-card" style="max-width: 900px; max-height: 90vh; overflow-y: auto;">
+      <div class="card-title" style="margin-bottom: 0; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <i data-lucide="settings"></i>
+          <span>Painel Administrativo</span>
+        </div>
+        <button id="btnFecharPainelAdmin" class="btn btn-secondary" style="padding: 0.4rem 0.8rem;">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+
+      <!-- Navegação por Abas no Admin -->
+      <div style="display: flex; gap: 0.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+        <button id="abaBtnCadastro" class="btn btn-primary" style="padding: 0.5rem 1rem;">
+          <i data-lucide="user-plus"></i>
+          <span>Cadastrar Matrícula</span>
+        </button>
+        <button id="abaBtnRegistros" class="btn btn-secondary" style="padding: 0.5rem 1rem;">
+          <i data-lucide="list"></i>
+          <span>Registros de Ponto</span>
+        </button>
+        <button id="abaBtnPessoas" class="btn btn-secondary" style="padding: 0.5rem 1rem;">
+          <i data-lucide="users"></i>
+          <span>Lista de Pessoas</span>
+        </button>
+      </div>
+
+      <!-- CONTEÚDO ABA 1: CADASTRO -->
+      <div id="abaConteudoCadastro">
+        <h3 style="margin-bottom: 1rem; font-size: 1rem;">Cadastrar Novo Funcionário</h3>
+        <div class="form-group">
+          <label class="form-label" for="novoNomeInput">Nome Completo</label>
+          <input type="text" id="novoNomeInput" class="form-input" placeholder="Ex: Maria Silva" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="novoEmailInput">E-mail</label>
+          <input type="email" id="novoEmailInput" class="form-input" placeholder="Ex: maria.silva@empresa.com" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="novaMatriculaInput">Código da Matrícula Gerado</label>
+          <div style="display: flex; gap: 0.5rem;">
+            <input type="text" id="novaMatriculaInput" class="form-input" readonly style="background-color: #F9FAFB;" />
+            <button id="btnGerarNovaMatricula" class="btn btn-secondary" type="button" title="Gerar Código de Matrícula">
+              <i data-lucide="refresh-cw"></i>
+              <span>Gerar Código</span>
+            </button>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; margin-top: 1rem;">
+          <button id="btnSalvarFuncionario" class="btn btn-primary">
+            <i data-lucide="save"></i>
+            <span>Salvar Funcionário</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- CONTEÚDO ABA 2: REGISTROS DE PONTO -->
+      <div id="abaConteudoRegistros" class="hidden">
+        <h3 style="margin-bottom: 1rem; font-size: 1rem;">Histórico de Registros de Ponto Realizados</h3>
+        <div style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 0.875rem; text-align: left;">
+            <thead>
+              <tr style="border-bottom: 2px solid var(--border-color); background: #F9FAFB;">
+                <th style="padding: 0.75rem;">Funcionário</th>
+                <th style="padding: 0.75rem;">Tipo</th>
+                <th style="padding: 0.75rem;">Data / Hora</th>
+                <th style="padding: 0.75rem;">Modo</th>
+                <th style="padding: 0.75rem;">Validação (Hash)</th>
+              </tr>
+            </thead>
+            <tbody id="tabelaRegistrosPontoBody">
+              <tr>
+                <td colspan="5" style="padding: 1rem; text-align: center; color: var(--text-muted);">Carregando registros...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- CONTEÚDO ABA 3: LISTA DE PESSOAS -->
+      <div id="abaConteudoPessoas" class="hidden">
+        <h3 style="margin-bottom: 1rem; font-size: 1rem;">Funcionários Cadastrados no Sistema</h3>
+        <div style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 0.875rem; text-align: left;">
+            <thead>
+              <tr style="border-bottom: 2px solid var(--border-color); background: #F9FAFB;">
+                <th style="padding: 0.75rem;">Matrícula</th>
+                <th style="padding: 0.75rem;">Nome</th>
+                <th style="padding: 0.75rem;">E-mail</th>
+                <th style="padding: 0.75rem;">Status</th>
+              </tr>
+            </thead>
+            <tbody id="tabelaFuncionariosBody">
+              <tr>
+                <td colspan="4" style="padding: 1rem; text-align: center; color: var(--text-muted);">Carregando lista de funcionários...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- MODAL DE SELEÇÃO E EMISSÃO DE COMPROVANTE (RF03) -->
   <div id="modalComprovante" class="modal-overlay hidden">
